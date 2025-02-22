@@ -1,7 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/mydatabase")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/Cluster007")
 
 client = AsyncIOMotorClient(MONGO_URI)
 db = client.Cluster007
