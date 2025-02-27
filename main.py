@@ -17,6 +17,11 @@ load_dotenv()
 # FastAPI app instance
 app = FastAPI()
 
+# Root endpoint
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the FastAPI backend!"}
+
 # MongoDB connection
 MONGO_URI = os.getenv("MONGO_URI")
 client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())  

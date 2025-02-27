@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:8000"; // Update this if your backend is deployed
+const API_URL = "https://gsharp.onrender.com/"; // Update this if your backend is deployed
 
 // Register User
 export const registerUser = async (username, password) => {
