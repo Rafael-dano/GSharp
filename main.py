@@ -73,7 +73,7 @@ async def protected_route(token: str = Depends(oauth2_scheme)):
 # Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Update with frontend URL
+    allow_origins=["https://gsharp1.onrender.com/"],  # Update with frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
