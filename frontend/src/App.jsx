@@ -1,19 +1,30 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Login from "./components/Login";
 import Dashboard from "./components/Dashboard";
 import MusicUpload from "./components/MusicUpload";
-import SongList from "./components/SongList"; // Import SongList
+import SongList from "./components/SongList";
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("token"));
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setIsAuthenticated(!!localStorage.getItem("token"));
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
   return (
     <Router>
-      <Navbar />
+      <Navbar isAuthenticated={isAuthenticated} setIsAuthenticated={setIsAuthenticated} />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/upload" element={<ProtectedRoute><MusicUpload /></ProtectedRoute>} />
         <Route path="/songs" element={<ProtectedRoute><SongList /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/login" />} /> {/* Redirect unknown routes */}
+        <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
   );
@@ -24,11 +35,10 @@ function ProtectedRoute({ children }) {
   return token ? children : <Navigate to="/login" />;
 }
 
-function Navbar() {
-  const token = localStorage.getItem("token");
-
+function Navbar({ isAuthenticated, setIsAuthenticated }) {
   const handleLogout = () => {
     localStorage.removeItem("token");
+    setIsAuthenticated(false);
     window.location.href = "/login";
   };
 
@@ -36,7 +46,7 @@ function Navbar() {
     <nav style={{ padding: "10px", background: "#333", color: "white", display: "flex", justifyContent: "space-between" }}>
       <Link to="/" style={{ color: "white", textDecoration: "none", fontSize: "20px" }}>GSharp Hub</Link>
       <div>
-        {token ? (
+        {isAuthenticated ? (
           <>
             <Link to="/dashboard" style={{ color: "white", marginRight: "10px" }}>Dashboard</Link>
             <Link to="/upload" style={{ color: "white", marginRight: "10px" }}>Music Upload</Link>

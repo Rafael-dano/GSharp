@@ -10,16 +10,28 @@ function Login() {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
+    if (!username || !password) {
+      setError("Please enter both username and password.");
+      return;
+    }
+
     setLoading(true);
     setError("");
+
     try {
       const data = await loginUser(username, password);
       localStorage.setItem("token", data.access_token);
       navigate("/dashboard");
     } catch (error) {
-      setError(error.message);
+      setError(error.response?.data?.detail || "Login failed. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleLogin();
     }
   };
 
@@ -31,12 +43,14 @@ function Login() {
         placeholder="Username"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
+        onKeyDown={handleKeyDown}
       />
       <input
         type="password"
         placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={handleKeyDown}
       />
       <button onClick={handleLogin} disabled={loading}>
         {loading ? "Logging in..." : "Login"}

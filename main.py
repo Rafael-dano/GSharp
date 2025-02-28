@@ -11,7 +11,7 @@ import certifi  # Fix SSL issue
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.responses import JSONResponse, FileResponse
-
+  
 # Load environment variables
 load_dotenv()
 
