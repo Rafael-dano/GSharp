@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
@@ -9,13 +10,22 @@ import uuid
 import certifi  # Fix SSL issue
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, FileResponse
 
 # Load environment variables
 load_dotenv()
 
 # FastAPI app instance
 app = FastAPI()
+
+# Enable CORS for frontend communication
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Root endpoint
 @app.get("/")
@@ -70,15 +80,6 @@ async def login(user: UserLogin):
 async def protected_route(token: str = Depends(oauth2_scheme)):
     return {"message": "You have access to this protected route!"}
 
-# Enable CORS for frontend communication
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://gsharp1.onrender.com/"],  # Update with frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # File Upload Handling
 MUSIC_UPLOAD_DIR = "uploads"
 os.makedirs(MUSIC_UPLOAD_DIR, exist_ok=True)  # Ensure the folder exists
@@ -90,7 +91,8 @@ async def upload_music(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     file_id = str(uuid.uuid4())  # Generate unique file name
-    file_path = os.path.join(MUSIC_UPLOAD_DIR, f"{file_id}.{file_ext}")
+    new_filename = f"{file_id}.{file_ext}"
+    file_path = os.path.join(MUSIC_UPLOAD_DIR, new_filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)  # Save file
@@ -98,9 +100,22 @@ async def upload_music(file: UploadFile = File(...)):
     # Store metadata in MongoDB
     music_doc = {
         "id": file_id,
-        "filename": file.filename,
+        "filename": new_filename,  # Store the new unique filename
+        "original_filename": file.filename,
         "path": file_path
     }
     await music_collection.insert_one(music_doc)
 
-    return {"message": "File uploaded successfully", "file_id": file_id}
+    return {"message": "File uploaded successfully", "file_id": file_id, "filename": new_filename}
+
+@app.get("/songs")
+async def get_uploaded_songs():
+    songs = await music_collection.find().to_list(None)
+    return JSONResponse(content=[{"_id": str(song["_id"]), "filename": song["filename"], "original_filename": song["original_filename"]} for song in songs])
+
+@app.get("/files/{filename}")
+async def get_file(filename: str):
+    file_path = os.path.join(MUSIC_UPLOAD_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path, media_type="audio/mpeg")

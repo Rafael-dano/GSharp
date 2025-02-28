@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "https://gsharp.onrender.com"; 
+const API_URL = "https://gsharp.onrender.com"; //backend 
 
 // Register User
 export const registerUser = async (username, password) => {
@@ -33,7 +33,6 @@ export const loginUser = async (username, password) => {
   }
 };
 
-
 // Get Protected Data
 export const getProtectedData = async () => {
   try {
@@ -51,7 +50,41 @@ export const getProtectedData = async () => {
   }
 };
 
-// Logout User (Optional)
+// Get Songs
+export const getSongs = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/songs`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching songs:", error.response?.data?.detail || error.message);
+    throw new Error(error.response?.data?.detail || "Failed to fetch songs");
+  }
+};
+
+// Upload Music File
+export const uploadMusic = async (file) => {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No token found. Please log in.");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await axios.post(`${API_URL}/upload`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Upload error:", error.response?.data?.detail || error.message);
+    throw new Error(error.response?.data?.detail || "Upload failed");
+  }
+};
+
+// Logout User
 export const logoutUser = () => {
   localStorage.removeItem("token");
 };
