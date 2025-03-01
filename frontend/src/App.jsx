@@ -7,6 +7,7 @@ import SongList from "./components/SongList";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("token"));
+  const [songs, setSongs] = useState([]); // Store song list
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -16,6 +17,25 @@ function App() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
+  // Fetch uploaded songs
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    fetch("/songs", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSongs(data); // Set songs only if it's an array
+        } else {
+          setSongs([]); // Avoid errors
+        }
+      })
+      .catch((err) => console.error("Error fetching songs:", err));
+  }, [isAuthenticated]);
+
   return (
     <Router>
       <Navbar isAuthenticated={isAuthenticated} setIsAuthenticated={setIsAuthenticated} />
@@ -23,7 +43,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/upload" element={<ProtectedRoute><MusicUpload /></ProtectedRoute>} />
-        <Route path="/songs" element={<ProtectedRoute><SongList /></ProtectedRoute>} />
+        <Route path="/songs" element={<ProtectedRoute><SongList songs={songs} /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>

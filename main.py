@@ -11,6 +11,7 @@ import certifi  # Fix SSL issue
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.responses import JSONResponse, FileResponse
+from pymongo import MongoClient
   
 # Load environment variables
 load_dotenv()
@@ -109,9 +110,27 @@ async def upload_music(file: UploadFile = File(...)):
     return {"message": "File uploaded successfully", "file_id": file_id, "filename": new_filename}
 
 @app.get("/songs")
-async def get_uploaded_songs():
-    songs = await music_collection.find().to_list(None)
-    return JSONResponse(content=[{"_id": str(song["_id"]), "filename": song["filename"], "original_filename": song["original_filename"]} for song in songs])
+async def get_uploaded_songs(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not username:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+    songs_cursor = music_collection.find({}, {"_id": 1, "filename": 1, "original_filename": 1})  
+    song_list = []
+    
+    async for song in songs_cursor:
+        song_list.append({
+            "_id": str(song["_id"]),
+            "filename": song["filename"],
+            "original_filename": song.get("original_filename", "Unknown")
+        })
+
+    return song_list  # Return list directly
+
 
 @app.get("/files/{filename}")
 async def get_file(filename: str):
