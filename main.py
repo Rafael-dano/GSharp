@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.responses import JSONResponse, FileResponse
 from pymongo import MongoClient
+from bson import ObjectId 
   
 # Load environment variables
 load_dotenv()
@@ -22,11 +23,15 @@ app = FastAPI()
 # Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # frontend URL
+    allow_origins=["http://localhost:3000"],  # Use frontend URL here for security
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Create uploads directory if not exists
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Root endpoint
 @app.get("/")
@@ -55,7 +60,17 @@ class UserRegister(BaseModel):
     username: str
     password: str
 
-# Register user
+class SongMetadata(BaseModel):
+    title: str
+    artist: str
+    genre: str
+
+# Comment model
+class Comment(BaseModel):
+    username: str
+    content: str
+
+# Register user with role
 @app.post("/register")
 async def register(user: UserRegister):
     existing_user = await users_collection.find_one({"username": user.username})
@@ -63,78 +78,120 @@ async def register(user: UserRegister):
         raise HTTPException(status_code=400, detail="User already exists")
     
     hashed_password = pwd_context.hash(user.password)
-    await users_collection.insert_one({"username": user.username, "password": hashed_password})
+    new_user = {
+        "username": user.username,
+        "password": hashed_password,
+        "role": "user"  # Default role is 'user'
+    }
+    await users_collection.insert_one(new_user)
     return {"message": "User registered successfully"}
 
-# Login user
-@app.post("/login")
-async def login(user: UserLogin):
-    existing_user = await users_collection.find_one({"username": user.username})
-    if not existing_user or not pwd_context.verify(user.password, existing_user["password"]):
-        raise HTTPException(status_code=400, detail="Invalid username or password")
-
-    token = jwt.encode({"sub": user.username}, SECRET_KEY, algorithm=ALGORITHM)
-    return {"access_token": token, "token_type": "bearer"}
-
-# Protected route
-@app.get("/protected")
-async def protected_route(token: str = Depends(oauth2_scheme)):
-    return {"message": "You have access to this protected route!"}
-
-# File Upload Handling
-MUSIC_UPLOAD_DIR = "uploads"
-os.makedirs(MUSIC_UPLOAD_DIR, exist_ok=True)  # Ensure the folder exists
-
+# Upload song with metadata
 @app.post("/upload")
-async def upload_music(file: UploadFile = File(...)):
+async def upload_music(
+    file: UploadFile = File(...), 
+    title: str = "", 
+    artist: str = "", 
+    genre: str = ""
+):
     file_ext = file.filename.split(".")[-1]
     if file_ext not in ["mp3", "wav"]:  # Allow only audio files
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     file_id = str(uuid.uuid4())  # Generate unique file name
     new_filename = f"{file_id}.{file_ext}"
-    file_path = os.path.join(MUSIC_UPLOAD_DIR, new_filename)
+    file_path = os.path.join(UPLOAD_DIR, new_filename)
 
+    # Save file
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)  # Save file
+        shutil.copyfileobj(file.file, buffer)
 
     # Store metadata in MongoDB
     music_doc = {
         "id": file_id,
-        "filename": new_filename,  # Store the new unique filename
+        "filename": new_filename,
         "original_filename": file.filename,
-        "path": file_path
+        "path": file_path,
+        "title": title if title else "Untitled",  # Default to "Untitled" if no title is provided
+        "artist": artist if artist else "Unknown Artist",  # Default to "Unknown Artist"
+        "genre": genre if genre else "Unknown Genre"  # Default to "Unknown Genre"
     }
     await music_collection.insert_one(music_doc)
 
     return {"message": "File uploaded successfully", "file_id": file_id, "filename": new_filename}
 
-@app.get("/songs")
-async def get_uploaded_songs(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if not username:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+from fastapi.responses import FileResponse
 
-    songs_cursor = music_collection.find({}, {"_id": 1, "filename": 1, "original_filename": 1})  
+# Serve audio files
+@app.get("/songs/{filename}")
+async def serve_song(filename: str):
+    file_path = os.path.join("uploads", filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="audio/mpeg")
+    else:
+        raise HTTPException(status_code=404, detail="File not found")
+
+# Like a song
+@app.post("/songs/{song_id}/like")
+async def like_song(song_id: str):
+    result = await music_collection.update_one(
+        {"_id": ObjectId(song_id)},
+        {"$inc": {"likes": 1}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Song not found")
+    return {"message": "Song liked successfully"}
+
+# Add a comment to a song
+@app.post("/songs/{song_id}/comments")
+async def add_comment(song_id: str, comment: Comment):
+    result = await music_collection.update_one(
+        {"_id": ObjectId(song_id)},
+        {"$push": {"comments": comment.dict()}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Song not found")
+    return {"message": "Comment added successfully"}
+
+# Update get_songs to include comments and handle missing fields safely
+@app.get("/songs")
+async def get_songs():
+    # Find all songs, result will be a cursor
+    songs_cursor = music_collection.find()
     song_list = []
-    
+    # Iterate through the cursor asynchronously
     async for song in songs_cursor:
         song_list.append({
             "_id": str(song["_id"]),
+            "filename": song.get("filename", "Unknown Filename"),
+            "title": song.get("title", "Untitled"),  # Default to "Untitled" if missing
+            "artist": song.get("artist", "Unknown Artist"),  # Default to "Unknown Artist"
+            "genre": song.get("genre", "Unknown Genre"),  # Default to "Unknown Genre"
+            "likes": song.get("likes", 0),
+            "comments": song.get("comments", [])  # Include comments, default to empty list
+        })
+    return song_list
+
+# Search and filter songs
+@app.get("/songs/search")
+async def search_songs(title: str = None, artist: str = None, genre: str = None):
+    query = {}
+    if title:
+        query["title"] = {"$regex": title, "$options": "i"}
+    if artist:
+        query["artist"] = {"$regex": artist, "$options": "i"}
+    if genre:
+        query["genre"] = {"$regex": genre, "$options": "i"}
+
+    songs_cursor = music_collection.find(query)
+    song_list = []
+    async for song in songs_cursor:
+        song_list.append({
+            "_id": str(song["_id"]),  # Convert ObjectId to string
             "filename": song["filename"],
-            "original_filename": song.get("original_filename", "Unknown")
+            "title": song.get("title", "Untitled"),
+            "artist": song.get("artist", "Unknown Artist"),
+            "genre": song.get("genre", "Unknown Genre")
         })
 
-    return song_list  # Return list directly
-
-
-@app.get("/files/{filename}")
-async def get_file(filename: str):
-    file_path = os.path.join(MUSIC_UPLOAD_DIR, filename)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(file_path, media_type="audio/mpeg")
+    return song_list
