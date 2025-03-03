@@ -14,6 +14,8 @@ from fastapi.responses import JSONResponse, FileResponse
 from pymongo import MongoClient
 from bson import ObjectId
 from datetime import datetime, timedelta
+from fastapi.security import OAuth2PasswordBearer
+
 
 # Load environment variables
 load_dotenv()
