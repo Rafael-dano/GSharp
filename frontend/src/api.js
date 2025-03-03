@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "https://gsharp.onrender.com"; //backend 
+const API_URL = "https://gsharp.onrender.com/api"; // Updated Backend URL with /api prefix
 
 // Register User
 export const registerUser = async (username, password) => {
@@ -18,8 +18,8 @@ export const loginUser = async (username, password) => {
   try {
     const response = await axios.post(
       `${API_URL}/login`,
-      { username, password }, 
-      { headers: { "Content-Type": "application/json" } } // Explicitly set JSON headers
+      { username, password },
+      { headers: { "Content-Type": "application/json" } }
     );
 
     if (response.data.access_token) {
@@ -37,16 +37,19 @@ export const loginUser = async (username, password) => {
 export const getProtectedData = async () => {
   try {
     const token = localStorage.getItem("token");
-    if (!token) throw new Error("No token found. Please log in.");
+    if (!token) {
+      console.log("No token found!");
+      return;
+    }
 
-    const response = await axios.get(`${API_URL}/protected`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const response = await axios.get(`${API_URL}/protected`, {  // Use API_URL here
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
-
-    return response.data;
+    console.log("Protected data:", response.data);
   } catch (error) {
-    console.error("Protected route error:", error.response?.data?.detail || error.message);
-    throw new Error(error.response?.data?.detail || "Access denied");
+    console.error("Error fetching protected data:", error.response?.data?.detail || error.message);
   }
 };
 
@@ -70,7 +73,7 @@ export const uploadMusic = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
 
-    const response = await axios.post(`${API_URL}/upload`, formData, {
+    const response = await axios.post(`${API_URL}/upload`, formData, {  // Updated endpoint to /upload
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "multipart/form-data",

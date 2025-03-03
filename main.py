@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from passlib.context import CryptContext
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordRequestForm
 import jwt
 import os
 import shutil
@@ -12,8 +12,9 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.responses import JSONResponse, FileResponse
 from pymongo import MongoClient
-from bson import ObjectId 
-  
+from bson import ObjectId
+from datetime import datetime, timedelta
+
 # Load environment variables
 load_dotenv()
 
@@ -23,7 +24,7 @@ app = FastAPI()
 # Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Use frontend URL here for security
+    allow_origins=["*"],  # Use frontend URL here for security
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,7 +47,7 @@ users_collection = db.users
 music_collection = db.music  # New collection for music files
 
 # Authentication settings
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")  
 ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -86,14 +87,49 @@ async def register(user: UserRegister):
     await users_collection.insert_one(new_user)
     return {"message": "User registered successfully"}
 
+# Authentication - Login
+@app.post("/login")
+async def login(user: UserLogin):
+    db_user = await users_collection.find_one({"username": user.username})
+    if not db_user or not pwd_context.verify(user.password, db_user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Create the JWT token
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# JWT Token Creation
+def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=30)):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+# Dummy login endpoint for testing
+@app.post("/api/login")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    # Replace with actual authentication logic
+    if form_data.username == "test" and form_data.password == "test":
+        return {"access_token": "dummy_token", "token_type": "bearer"}
+    raise HTTPException(status_code=401, detail="Invalid username or password")
+
+@app.get("/protected")
+async def get_protected_data(token: str = Depends(oauth2_scheme)):
+    return {"message": "This is protected data!"}
+
 # Upload song with metadata
 @app.post("/upload")
 async def upload_music(
     file: UploadFile = File(...), 
     title: str = "", 
     artist: str = "", 
-    genre: str = ""
+    genre: str = "", 
+    token: str = Depends(oauth2_scheme)
 ):
+    # Verify token
+    verify_token(token)
+    
     file_ext = file.filename.split(".")[-1]
     if file_ext not in ["mp3", "wav"]:  # Allow only audio files
         raise HTTPException(status_code=400, detail="Invalid file type")
@@ -120,6 +156,16 @@ async def upload_music(
 
     return {"message": "File uploaded successfully", "file_id": file_id, "filename": new_filename}
 
+# Verify the token
+def verify_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+
 from fastapi.responses import FileResponse
 
 # Serve audio files
@@ -133,7 +179,10 @@ async def serve_song(filename: str):
 
 # Like a song
 @app.post("/songs/{song_id}/like")
-async def like_song(song_id: str):
+async def like_song(song_id: str, token: str = Depends(oauth2_scheme)):
+    # Verify token
+    verify_token(token)
+    
     result = await music_collection.update_one(
         {"_id": ObjectId(song_id)},
         {"$inc": {"likes": 1}}
@@ -144,7 +193,10 @@ async def like_song(song_id: str):
 
 # Add a comment to a song
 @app.post("/songs/{song_id}/comments")
-async def add_comment(song_id: str, comment: Comment):
+async def add_comment(song_id: str, comment: Comment, token: str = Depends(oauth2_scheme)):
+    # Verify token
+    verify_token(token)
+
     result = await music_collection.update_one(
         {"_id": ObjectId(song_id)},
         {"$push": {"comments": comment.dict()}}

@@ -4,6 +4,7 @@ import datetime
 from passlib.context import CryptContext
 from fastapi import HTTPException, Security, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from auth import login_user
 
 # Load JWT Secret from .env
 JWT_SECRET = os.getenv("JWT_SECRET", "mysecretkey")  

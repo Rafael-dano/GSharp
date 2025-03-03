@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../api";
+import { loginUser, getProtectedData } from "../api";  // Import loginUser
+import axios from "axios";
+
+const API_URL = "https://gsharp.onrender.com";  // Backend URL
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -19,11 +22,27 @@ function Login() {
     setError("");
 
     try {
-      const data = await loginUser(username, password);
+      const response = await axios.post(`${API_URL}/api/login`, {  // Updated URL
+        username,
+        password,
+      });
+
+      const data = response.data;
       localStorage.setItem("token", data.access_token);
+      await getProtectedData();  // Test the protected route
       navigate("/dashboard");
     } catch (error) {
-      setError(error.response?.data?.detail || "Login failed. Please try again.");
+      if (error.response) {
+        if (error.response.status === 404) {
+          setError("API endpoint not found (404). Check the server URL.");
+        } else if (error.response.status === 401) {
+          setError("Invalid username or password.");
+        } else {
+          setError(error.response.data?.detail || "Login failed. Please try again.");
+        }
+      } else {
+        setError("Network error. Please check your connection.");
+      }
     } finally {
       setLoading(false);
     }
