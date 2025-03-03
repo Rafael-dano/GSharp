@@ -49,7 +49,7 @@ users_collection = db.users
 music_collection = db.music  # New collection for music files
 
 # Authentication settings
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")  
 ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
