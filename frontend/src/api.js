@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "https://gsharp.onrender.com/api"; // Updated Backend URL with /api prefix
+const API_URL = "https://gsharp.onrender.com"; // Updated Backend URL with /api prefix
 
 // Helper function to get token
 const getToken = () => localStorage.getItem("token");
