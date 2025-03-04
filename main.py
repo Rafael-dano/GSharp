@@ -84,7 +84,7 @@ def verify_token(token: str):
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 # Register user
-@app.post("/register")
+@app.post("/api/register")
 async def register(user: UserRegister):
     existing_user = await users_collection.find_one({"username": user.username})
     if existing_user:
@@ -100,7 +100,7 @@ async def register(user: UserRegister):
     return {"message": "User registered successfully"}
 
 # Login user
-@app.post("/login")
+@app.post("/api/login")
 async def login(user: UserLogin):
     db_user = await users_collection.find_one({"username": user.username})
     if not db_user or not pwd_context.verify(user.password, db_user["password"]):
@@ -110,7 +110,7 @@ async def login(user: UserLogin):
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Upload song with metadata
-@app.post("/upload")
+@app.post("/api/upload")
 async def upload_music(
     file: UploadFile = File(...), 
     title: str = "", 
@@ -182,7 +182,7 @@ async def add_comment(song_id: str, comment: Comment, token: str = Depends(oauth
     return {"message": "Comment added successfully"}
 
 # Get all songs
-@app.get("/songs")
+@app.get("/api/songs")
 async def get_songs():
     songs_cursor = music_collection.find()
     song_list = []
