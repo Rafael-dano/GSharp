@@ -19,23 +19,30 @@ function Dashboard() {
       } catch (error) {
         console.error("Error fetching protected data:", error);
         setError("Session expired. Please log in again.");
-        logoutUser(); // Clear token
-        navigate("/login"); // Redirect to login
+        handleLogout(); // Use handleLogout to clear token and redirect
       }
     };
 
     fetchData();
   }, [navigate]);
 
+  const handleLogout = () => {
+    logoutUser();
+    navigate("/login");
+  };
+
   return (
-    <div>
-      <h2>Dashboard</h2>
+    <div className="p-4 bg-white rounded-lg shadow-md max-w-md mx-auto mt-8">
+      <h2 className="text-2xl font-bold mb-4">Dashboard</h2>
       {error ? (
-        <p style={{ color: "red" }}>{error}</p>
+        <p className="text-red-500 mb-4">{error}</p>
       ) : (
-        <p>{message || "Loading..."}</p>
+        <p className="mb-4">{message || "Loading..."}</p>
       )}
-      <button onClick={() => { logoutUser(); navigate("/login"); }}>
+      <button
+        onClick={handleLogout}
+        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200"
+      >
         Logout
       </button>
     </div>

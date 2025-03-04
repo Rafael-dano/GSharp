@@ -4,10 +4,12 @@ import Login from "./components/Login";
 import Dashboard from "./components/Dashboard";
 import MusicUpload from "./components/MusicUpload";
 import SongList from "./components/SongList";
+import { getSongs, logoutUser } from "./api"; // Import API functions
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("token"));
   const [songs, setSongs] = useState([]); // Store song list
+  const [loading, setLoading] = useState(true); // Loading state
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -19,21 +21,18 @@ function App() {
 
   // Fetch uploaded songs
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    fetch("/songs", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setSongs(data); // Set songs only if it's an array
-        } else {
-          setSongs([]); // Avoid errors
-        }
-      })
-      .catch((err) => console.error("Error fetching songs:", err));
+    const fetchSongs = async () => {
+      if (!isAuthenticated) return;
+      try {
+        const data = await getSongs();
+        setSongs(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching songs:", err);
+      } finally {
+        setLoading(false); // Stop loading regardless of success or failure
+      }
+    };
+    fetchSongs();
   }, [isAuthenticated]);
 
   return (
@@ -43,7 +42,10 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/upload" element={<ProtectedRoute><MusicUpload /></ProtectedRoute>} />
-        <Route path="/songs" element={<ProtectedRoute><SongList songs={songs} /></ProtectedRoute>} />
+        <Route
+          path="/songs"
+          element={<ProtectedRoute>{loading ? <p>Loading...</p> : <SongList songs={songs} />}</ProtectedRoute>}
+        />
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
@@ -57,7 +59,7 @@ function ProtectedRoute({ children }) {
 
 function Navbar({ isAuthenticated, setIsAuthenticated }) {
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    logoutUser(); // Use the logout function from api.js
     setIsAuthenticated(false);
     window.location.href = "/login";
   };
@@ -71,7 +73,12 @@ function Navbar({ isAuthenticated, setIsAuthenticated }) {
             <Link to="/dashboard" style={{ color: "white", marginRight: "10px" }}>Dashboard</Link>
             <Link to="/upload" style={{ color: "white", marginRight: "10px" }}>Music Upload</Link>
             <Link to="/songs" style={{ color: "white", marginRight: "10px" }}>Songs</Link>
-            <button onClick={handleLogout} style={{ background: "red", color: "white", border: "none", padding: "5px 10px", cursor: "pointer" }}>Logout</button>
+            <button
+              onClick={handleLogout}
+              style={{ background: "red", color: "white", border: "none", padding: "5px 10px", cursor: "pointer" }}
+            >
+              Logout
+            </button>
           </>
         ) : (
           <Link to="/login" style={{ color: "white" }}>Login</Link>

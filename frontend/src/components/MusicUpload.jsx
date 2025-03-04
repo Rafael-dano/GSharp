@@ -24,7 +24,7 @@ function MusicUpload() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:8000/upload", {
+      const response = await fetch("https://gsharp.onrender.com/upload", {  // Updated URL for Render
         method: "POST",
         body: formData,
       });
@@ -45,16 +45,27 @@ function MusicUpload() {
   };
 
   return (
-    <div>
-      <h2>Upload Music</h2>
-      <form onSubmit={handleUpload}>
-        <input type="file" accept=".mp3" onChange={handleFileChange} />
-        <button type="submit" disabled={isUploading}>
+    <div className="p-4 bg-white rounded-lg shadow-md max-w-md mx-auto mt-8">
+      <h2 className="text-2xl font-bold mb-4">Upload Music</h2>
+      <form onSubmit={handleUpload} className="flex flex-col items-center">
+        <input
+          type="file"
+          accept=".mp3"
+          onChange={handleFileChange}
+          className="mb-4"
+        />
+        <button
+          type="submit"
+          disabled={isUploading}
+          className={`w-full p-2 rounded text-white ${isUploading ? "bg-blue-400" : "bg-blue-500 hover:bg-blue-600"} transition duration-200 mb-4`}
+        >
           {isUploading ? "Uploading..." : "Upload"}
         </button>
       </form>
-      <p>{message}</p>
-      {uploadedFileName && <p>Uploaded File: {uploadedFileName}</p>}
+      {message && <p className="mb-2 text-center">{message}</p>}
+      {uploadedFileName && (
+        <p className="text-center text-green-600">Uploaded File: {uploadedFileName}</p>
+      )}
     </div>
   );
 }

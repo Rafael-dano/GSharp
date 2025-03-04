@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser, getProtectedData } from "../api";  // Import loginUser
+import { loginUser, getProtectedData } from "../api";
 import axios from "axios";
 
-const API_URL = "https://gsharp.onrender.com";  // Backend URL
+const API_URL = "https://gsharp.onrender.com";
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -22,14 +22,14 @@ function Login() {
     setError("");
 
     try {
-      const response = await axios.post(`${API_URL}/api/login`, {  // Updated URL
+      const response = await axios.post(`${API_URL}/api/login`, {
         username,
         password,
       });
 
       const data = response.data;
       localStorage.setItem("token", data.access_token);
-      await getProtectedData();  // Test the protected route
+      await getProtectedData(); 
       navigate("/dashboard");
     } catch (error) {
       if (error.response) {
@@ -55,14 +55,15 @@ function Login() {
   };
 
   return (
-    <div>
-      <h2>Login</h2>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <div className="p-4 bg-white rounded-lg shadow-md max-w-md mx-auto mt-8">
+      <h2 className="text-2xl font-bold mb-4">Login</h2>
+      {error && <p className="text-red-500 mb-4">{error}</p>}
       <input
         placeholder="Username"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
         onKeyDown={handleKeyDown}
+        className="w-full p-2 mb-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       <input
         type="password"
@@ -70,8 +71,13 @@ function Login() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         onKeyDown={handleKeyDown}
+        className="w-full p-2 mb-4 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
-      <button onClick={handleLogin} disabled={loading}>
+      <button
+        onClick={handleLogin}
+        disabled={loading}
+        className={`w-full p-2 rounded text-white ${loading ? "bg-blue-400" : "bg-blue-500 hover:bg-blue-600"} transition duration-200`}
+      >
         {loading ? "Logging in..." : "Login"}
       </button>
     </div>
