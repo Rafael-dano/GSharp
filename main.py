@@ -24,7 +24,7 @@ app = FastAPI()
 # Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with your frontend URL for security
+    allow_origins=["http://localhost:3000", "https://gsharp.onrender.com"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,7 +39,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client.music_hub
 users_collection = db.users
-music_collection = db.music  # New collection for music files
+music_collection = db.music
 
 # Authentication settings
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
@@ -60,10 +60,6 @@ class SongMetadata(BaseModel):
     title: str
     artist: str
     genre: str
-
-class Comment(BaseModel):
-    username: str
-    content: str
 
 # JWT Token Creation
 def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=30)):
@@ -138,9 +134,7 @@ async def upload_music(
         "path": file_path,
         "title": title or "Untitled",
         "artist": artist or "Unknown Artist",
-        "genre": genre or "Unknown Genre",
-        "likes": 0,
-        "comments": []
+        "genre": genre or "Unknown Genre"
     }
     await music_collection.insert_one(music_doc)
 
@@ -155,32 +149,6 @@ async def serve_song(filename: str):
     else:
         raise HTTPException(status_code=404, detail="File not found")
 
-# Like a song
-@app.post("/songs/{song_id}/like")
-async def like_song(song_id: str, token: str = Depends(oauth2_scheme)):
-    verify_token(token)
-    
-    result = await music_collection.update_one(
-        {"id": song_id},
-        {"$inc": {"likes": 1}}
-    )
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Song not found")
-    return {"message": "Song liked successfully"}
-
-# Add a comment to a song
-@app.post("/songs/{song_id}/comments")
-async def add_comment(song_id: str, comment: Comment, token: str = Depends(oauth2_scheme)):
-    verify_token(token)
-
-    result = await music_collection.update_one(
-        {"id": song_id},
-        {"$push": {"comments": comment.dict()}}
-    )
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Song not found")
-    return {"message": "Comment added successfully"}
-
 # Get all songs
 @app.get("/api/songs")
 async def get_songs():
@@ -190,31 +158,6 @@ async def get_songs():
         song_list.append({
             "id": song["id"],
             "filename": song.get("filename", "Unknown Filename"),
-            "title": song.get("title", "Untitled"),
-            "artist": song.get("artist", "Unknown Artist"),
-            "genre": song.get("genre", "Unknown Genre"),
-            "likes": int(song.get("likes", 0)),
-            "comments": list(song.get("comments", []))
-        })
-    return song_list
-
-# Search songs
-@app.get("/songs/search")
-async def search_songs(title: str = None, artist: str = None, genre: str = None):
-    query = {}
-    if title:
-        query["title"] = {"$regex": title, "$options": "i"}
-    if artist:
-        query["artist"] = {"$regex": artist, "$options": "i"}
-    if genre:
-        query["genre"] = {"$regex": genre, "$options": "i"}
-
-    songs_cursor = music_collection.find(query)
-    song_list = []
-    async for song in songs_cursor:
-        song_list.append({
-            "id": song["id"],
-            "filename": song["filename"],
             "title": song.get("title", "Untitled"),
             "artist": song.get("artist", "Unknown Artist"),
             "genre": song.get("genre", "Unknown Genre")
