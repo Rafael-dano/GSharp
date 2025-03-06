@@ -141,6 +141,9 @@ async def login(user: UserLogin):
 async def preflight():
     return JSONResponse(status_code=200)
 
+@app.get("/api/protected")
+async def get_protected_data():
+    return {"message": "Protected route"}
 
 # Upload song with metadata
 @app.post("/api/upload")
