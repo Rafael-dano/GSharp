@@ -38,7 +38,12 @@ async def log_requests(request, call_next):
     print(f"Response status: {response.status_code}")
     return response
 
-print("CORS Config:", allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+print("CORS Config:", {
+    "allow_origins": ["http://localhost:3000"],
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"]
+})
 
 # Create uploads directory if not exists
 UPLOAD_DIR = "uploads"
