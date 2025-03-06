@@ -16,19 +16,27 @@ function MusicUpload() {
       setMessage("Please select a file first.");
       return;
     }
-
+  
     setIsUploading(true);
     setMessage("");
-
+  
     const formData = new FormData();
     formData.append("file", file);
-
+    formData.append("title", title || "Untitled");
+    formData.append("artist", artist || "Unknown Artist");
+    formData.append("genre", genre || "Unknown Genre");
+  
+    const token = localStorage.getItem("token");  // Get the token
+  
     try {
-      const response = await fetch("https://gsharp.onrender.com/api/upload", {  // Corrected URL
+      const response = await fetch("https://gsharp.onrender.com/api/upload", {
         method: "POST",
         body: formData,
+        headers: {
+          "Authorization": `Bearer ${token}`,  // Attach token here
+        },
       });
-
+  
       const data = await response.json();
       if (response.ok) {
         setMessage("File uploaded successfully!");
@@ -42,7 +50,7 @@ function MusicUpload() {
     } finally {
       setIsUploading(false);
     }
-  };
+  };  
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-md max-w-md mx-auto mt-8">
