@@ -51,6 +51,11 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # MongoDB connection
 MONGO_URI = os.getenv("MONGO_URI")
+
+# Check if MONGO_URI is set
+if not MONGO_URI:
+    raise RuntimeError("MONGO_URI environment variable not set. Please add it to your Render environment variables.")
+
 client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client.music_hub
 users_collection = db.users
