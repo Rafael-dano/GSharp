@@ -5,6 +5,7 @@ from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 import jwt
 import traceback
+import bcrypt
 import os
 import shutil
 import uuid
@@ -15,6 +16,9 @@ from fastapi.responses import JSONResponse, FileResponse
 from bson import ObjectId
 from datetime import datetime, timedelta
 from jwt import ExpiredSignatureError, InvalidTokenError
+
+if not hasattr(bcrypt, '__about__'):
+    bcrypt.__about__ = type('about', (object,), {'__version__': bcrypt.__version__})()
 
 # Load environment variables
 load_dotenv()
