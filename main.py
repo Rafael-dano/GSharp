@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 import jwt
+import traceback
 import os
 import shutil
 import uuid
@@ -36,6 +37,8 @@ async def log_requests(request, call_next):
     response = await call_next(request)
     print(f"Response status: {response.status_code}")
     return response
+
+print("CORS Config:", allow_origins=["http://localhost:3000"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # Create uploads directory if not exists
 UPLOAD_DIR = "uploads"
@@ -105,12 +108,20 @@ async def register(user: UserRegister):
 # Login user
 @app.post("/api/login")
 async def login(user: UserLogin):
-    db_user = await users_collection.find_one({"username": user.username})
-    if not db_user or not pwd_context.verify(user.password, db_user["password"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    access_token = create_access_token(data={"sub": user.username})
-    return {"access_token": access_token, "token_type": "bearer"}
+    try:
+        db_user = await users_collection.find_one({"username": user.username})
+        if not db_user or not pwd_context.verify(user.password, db_user["password"]):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        access_token = create_access_token(data={"sub": user.username})
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    except HTTPException as e:
+        raise e  # Forward HTTP errors as-is
+    except Exception as e:
+        print("Login Error:", str(e))
+        print(traceback.format_exc())  # Log the full error traceback
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.options("/api/login")
 async def preflight():
