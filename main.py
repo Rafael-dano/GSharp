@@ -30,6 +30,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"Incoming request: {request.method} {request.url}")
+    response = await call_next(request)
+    print(f"Response status: {response.status_code}")
+    return response
+
 # Create uploads directory if not exists
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -104,6 +111,11 @@ async def login(user: UserLogin):
     
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.options("/api/login")
+async def preflight():
+    return JSONResponse(status_code=200)
+
 
 # Upload song with metadata
 @app.post("/api/upload")
