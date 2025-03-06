@@ -24,7 +24,7 @@ function MusicUpload() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("https://gsharp.onrender.com/upload", {  // Updated URL for Render
+      const response = await fetch("https://gsharp.onrender.com/api/upload", {  // Corrected URL
         method: "POST",
         body: formData,
       });
