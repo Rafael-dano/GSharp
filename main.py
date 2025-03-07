@@ -1,21 +1,21 @@
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from passlib.context import CryptContext
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from passlib.context import CryptContext
 import jwt
-import traceback
-import bcrypt
+from jwt import ExpiredSignatureError, InvalidTokenError
+from motor.motor_asyncio import AsyncIOMotorClient
+from bson import ObjectId
+from dotenv import load_dotenv
+import certifi 
+from pydantic import BaseModel
 import os
 import shutil
 import uuid
-import certifi  # Fix SSL issue
-from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
-from fastapi.responses import JSONResponse, FileResponse
-from bson import ObjectId
+import bcrypt
+import traceback
 from datetime import datetime, timedelta
-from jwt import ExpiredSignatureError, InvalidTokenError
 
 if not hasattr(bcrypt, '__about__'):
     bcrypt.__about__ = type('about', (object,), {'__version__': bcrypt.__version__})()
@@ -84,6 +84,11 @@ class SongMetadata(BaseModel):
     title: str
     artist: str
     genre: str
+
+# Comment model
+class Comment(BaseModel):
+    username: str
+    content: str
 
 # JWT Token Creation
 def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=30)):
@@ -209,31 +214,24 @@ async def get_songs():
 # Like a song
 @app.post("/api/songs/{song_id}/like")
 async def like_song(song_id: str, token: str = Depends(oauth2_scheme)):
-    verify_token(token)
-    
-    result = await music_collection.update_one(
-        {"id": song_id},
-        {"$inc": {"likes": 1}}
-    )
-    
-    if result.modified_count == 0:
+    song = db.songs.find_one({"_id": ObjectId(song_id)})
+    if not song:
         raise HTTPException(status_code=404, detail="Song not found")
-    
-    return {"message": "Liked successfully"}
 
-# Add a comment to a song
+    db.songs.update_one({"_id": ObjectId(song_id)}, {"$inc": {"likes": 1}})
+    return {"message": "Song liked successfully"}
+
+# Add a comment
 @app.post("/api/songs/{song_id}/comments")
-async def add_comment(song_id: str, comment: dict, token: str = Depends(oauth2_scheme)):
-    verify_token(token)
-
-    result = await music_collection.update_one(
-        {"id": song_id},
-        {"$push": {"comments": {"username": "Guest", "content": comment["content"]}}}
-    )
-
-    if result.modified_count == 0:
+async def add_comment(song_id: str, comment: Comment, token: str = Depends(oauth2_scheme)):
+    song = db.songs.find_one({"_id": ObjectId(song_id)})
+    if not song:
         raise HTTPException(status_code=404, detail="Song not found")
 
+    db.songs.update_one(
+        {"_id": ObjectId(song_id)},
+        {"$push": {"comments": comment.dict()}}
+    )
     return {"message": "Comment added successfully"}
 
 # Root endpoint
