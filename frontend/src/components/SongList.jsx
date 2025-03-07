@@ -122,10 +122,7 @@ function SongList() {
                 {song.title} by {song.artist} ({song.genre})
               </p>
               <audio controls className="w-full mb-2">
-                <source
-                  src={`${API_URL}/songs/${song.filename}`}
-                  type="audio/mpeg"
-                />
+              <source src={`${API_URL}/songs/file/${song.filename}`} type="audio/mpeg" />
                 Your browser does not support the audio element.
               </audio>
 
