@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
+from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
@@ -87,8 +87,7 @@ class SongMetadata(BaseModel):
 
 # Comment model
 class Comment(BaseModel):
-    username: str
-    content: str
+    comment: str
 
 # JWT Token Creation
 def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=30)):
@@ -186,13 +185,12 @@ async def upload_music(
     return {"message": "File uploaded successfully", "file_id": file_id, "filename": new_filename}
 
 # Serve audio files
-@app.get("/songs/{filename}")
-async def serve_song(filename: str):
-    file_path = os.path.join("uploads", filename)
+@app.get("/api/songs/file/{file_id}")
+async def get_song_file(file_id: str):
+    file_path = f"uploads/{file_id}.mp3"  # Ensure this path matches your saved file location
     if os.path.exists(file_path):
         return FileResponse(file_path, media_type="audio/mpeg")
-    else:
-        raise HTTPException(status_code=404, detail="File not found")
+    raise HTTPException(status_code=404, detail="File not found")
 
 # Get all songs
 @app.get("/api/songs")
@@ -223,16 +221,15 @@ async def like_song(song_id: str, token: str = Depends(oauth2_scheme)):
 
 # Add a comment
 @app.post("/api/songs/{song_id}/comments")
-async def add_comment(song_id: str, comment: Comment, token: str = Depends(oauth2_scheme)):
-    song = db.songs.find_one({"_id": ObjectId(song_id)})
-    if not song:
-        raise HTTPException(status_code=404, detail="Song not found")
-
-    db.songs.update_one(
+async def add_comment(song_id: str, comment: CommentRequest):
+    comment_data = {"comment": comment.comment, "timestamp": datetime.utcnow()}
+    result = await db["songs"].update_one(
         {"_id": ObjectId(song_id)},
-        {"$push": {"comments": comment.dict()}}
+        {"$push": {"comments": comment_data}}
     )
-    return {"message": "Comment added successfully"}
+    if result.modified_count == 1:
+        return {"message": "Comment added"}
+    raise HTTPException(status_code=404, detail="Song not found")
 
 # Root endpoint
 @app.get("/")

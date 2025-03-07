@@ -72,37 +72,42 @@ function SongList() {
     if (!comment) return;
 
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("You must be logged in to comment.");
-        return;
-      }
-
-      await axios.post(
-        `${API_URL}/songs/${songId}/comments`,
-        { content: comment },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const token = localStorage.getItem("token");
+        if (!token) {
+            setError("You must be logged in to comment.");
+            return;
         }
-      );
 
-      setSongs((prevSongs) =>
-        prevSongs.map((song) =>
-          song._id === songId
-            ? {
-                ...song,
-                comments: [...(song.comments || []), { username: "Guest", content: comment }],
-              }
-            : song
-        )
-      );
-      setCommentInputs({ ...commentInputs, [songId]: "" });
+        // 🔄 Updated to match the expected API schema
+        await axios.post(
+            `${API_URL}/songs/${songId}/comments`,
+            { comment: comment },  // 👈 Change `content` to `comment` to match the backend schema
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+
+        // 🔄 Update the local state to reflect the new comment
+        setSongs((prevSongs) =>
+            prevSongs.map((song) =>
+                song._id === songId
+                    ? {
+                          ...song,
+                          comments: [
+                              ...(song.comments || []),
+                              { username: "Guest", comment: comment },  // 🔄 Change `content` to `comment` here too
+                          ],
+                      }
+                    : song
+            )
+        );
+        setCommentInputs({ ...commentInputs, [songId]: "" });
     } catch (error) {
-      console.error("Error adding comment:", error);
+        console.error("Error adding comment:", error);
     }
-  };
+};
 
   if (error) {
     return <div>{error}</div>;
