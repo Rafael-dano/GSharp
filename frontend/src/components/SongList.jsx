@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_URL = "https://gsharp.onrender.com";  // Updated backend URL
+const API_URL = "https://gsharp.onrender.com/api";  // Updated backend URL
 
 function SongList() {
   const [songs, setSongs] = useState([]);
   const [error, setError] = useState(null);
-  const [commentInputs, setCommentInputs] = useState({}); // For handling comments input
+  const [commentInputs, setCommentInputs] = useState({}); 
 
   useEffect(() => {
     const fetchSongs = async () => {
@@ -28,7 +28,7 @@ function SongList() {
         }
 
         const data = await response.json();
-        setSongs(Array.isArray(data) ? data : []);
+        setSongs(Array.isArray(data.songs) ? data.songs : []);
       } catch (error) {
         console.error("Error fetching songs:", error);
         setError("Error fetching songs. Please try again later.");
@@ -41,7 +41,16 @@ function SongList() {
   // Handle like button click
   const handleLike = async (songId) => {
     try {
-      await axios.post(`${API_URL}/songs/${songId}/like`);
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${API_URL}/songs/${songId}/like`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,  // Include token
+          },
+        }
+      );
       setSongs((prevSongs) =>
         prevSongs.map((song) =>
           song._id === songId ? { ...song, likes: (song.likes || 0) + 1 } : song
@@ -66,10 +75,19 @@ function SongList() {
     if (!comment) return;
 
     try {
-      await axios.post(`${API_URL}/songs/${songId}/comments`, {
-        username: "Guest", // Replace with actual username if logged in
-        content: comment,
-      });
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${API_URL}/songs/${songId}/comments`,
+        {
+          username: "Guest",
+          content: comment,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,  // Include token
+          },
+        }
+      );
       setSongs((prevSongs) =>
         prevSongs.map((song) =>
           song._id === songId
@@ -101,7 +119,7 @@ function SongList() {
               className="border rounded-lg p-4 shadow-sm bg-gray-50"
             >
               <p className="font-semibold mb-2">
-                {song.original_filename || song.filename}
+                {song.title} by {song.artist} ({song.genre})
               </p>
               <audio controls className="w-full mb-2">
                 <source

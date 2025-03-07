@@ -192,17 +192,19 @@ async def serve_song(filename: str):
 # Get all songs
 @app.get("/api/songs")
 async def get_songs():
-    songs_cursor = music_collection.find()
+    songs_cursor = music_collection.find()  # Remove (100) and fix find() method
     song_list = []
     async for song in songs_cursor:
         song_list.append({
-            "id": song["id"],
+            "_id": str(song["_id"]),  # Convert ObjectId to string for React
             "filename": song.get("filename", "Unknown Filename"),
             "title": song.get("title", "Untitled"),
             "artist": song.get("artist", "Unknown Artist"),
-            "genre": song.get("genre", "Unknown Genre")
+            "genre": song.get("genre", "Unknown Genre"),
+            "likes": song.get("likes", 0),  # Include likes if available
+            "comments": song.get("comments", [])  # Include comments if available
         })
-    return song_list
+    return {"songs": song_list}  # Return as a dictionary with "songs" key
 
 # Root endpoint
 @app.get("/")
