@@ -206,6 +206,36 @@ async def get_songs():
         })
     return {"songs": song_list}  # Return as a dictionary with "songs" key
 
+# Like a song
+@app.post("/api/songs/{song_id}/like")
+async def like_song(song_id: str, token: str = Depends(oauth2_scheme)):
+    verify_token(token)
+    
+    result = await music_collection.update_one(
+        {"id": song_id},
+        {"$inc": {"likes": 1}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Song not found")
+    
+    return {"message": "Liked successfully"}
+
+# Add a comment to a song
+@app.post("/api/songs/{song_id}/comments")
+async def add_comment(song_id: str, comment: dict, token: str = Depends(oauth2_scheme)):
+    verify_token(token)
+
+    result = await music_collection.update_one(
+        {"id": song_id},
+        {"$push": {"comments": {"username": "Guest", "content": comment["content"]}}}
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Song not found")
+
+    return {"message": "Comment added successfully"}
+
 # Root endpoint
 @app.get("/")
 def read_root():

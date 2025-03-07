@@ -17,18 +17,13 @@ function SongList() {
           return;
         }
 
-        const response = await fetch(`${API_URL}/songs`, {
+        const response = await axios.get(`${API_URL}/songs`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch songs");
-        }
-
-        const data = await response.json();
-        setSongs(Array.isArray(data.songs) ? data.songs : []);
+        setSongs(Array.isArray(response.data.songs) ? response.data.songs : []);
       } catch (error) {
         console.error("Error fetching songs:", error);
         setError("Error fetching songs. Please try again later.");
@@ -42,15 +37,17 @@ function SongList() {
   const handleLike = async (songId) => {
     try {
       const token = localStorage.getItem("token");
-      await axios.post(
-        `${API_URL}/songs/${songId}/like`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,  // Include token
-          },
-        }
-      );
+      if (!token) {
+        setError("You must be logged in to like songs.");
+        return;
+      }
+
+      await axios.post(`${API_URL}/songs/${songId}/like`, null, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       setSongs((prevSongs) =>
         prevSongs.map((song) =>
           song._id === songId ? { ...song, likes: (song.likes || 0) + 1 } : song
@@ -76,18 +73,21 @@ function SongList() {
 
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        setError("You must be logged in to comment.");
+        return;
+      }
+
       await axios.post(
         `${API_URL}/songs/${songId}/comments`,
-        {
-          username: "Guest",
-          content: comment,
-        },
+        { content: comment },
         {
           headers: {
-            Authorization: `Bearer ${token}`,  // Include token
+            Authorization: `Bearer ${token}`,
           },
         }
       );
+
       setSongs((prevSongs) =>
         prevSongs.map((song) =>
           song._id === songId
