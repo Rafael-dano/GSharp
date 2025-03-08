@@ -1,66 +1,68 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_URL = "https://gsharp.onrender.com/api";  // Updated backend URL
+const API_URL = "https://gsharp.onrender.com/api"; // Updated backend URL
 
 function SongList() {
   const [songs, setSongs] = useState([]);
   const [error, setError] = useState(null);
-  const [commentInputs, setCommentInputs] = useState({}); 
+  const [commentInputs, setCommentInputs] = useState({});
 
   useEffect(() => {
     const fetchSongs = () => {
-        const token = localStorage.getItem("token");
-        if (!token) {
-            setError("You must be logged in to view songs.");
-            return;
-        }
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("You must be logged in to view songs.");
+        return;
+      }
 
-        axios.get(`${API_URL}/songs`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
+      axios
+        .get(`${API_URL}/songs`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         })
         .then((response) => {
-            if (response.data?.songs?.length) {
-                setSongs(response.data.songs);
-            } else {
-                console.warn("No songs returned from API.");
-                setSongs([]);
-            }
+          if (response.data?.songs?.length) {
+            setSongs(response.data.songs);
+          } else {
+            console.warn("No songs returned from API.");
+            setSongs([]);
+          }
         })
         .catch((error) => {
-            console.error("Error fetching songs:", error);
-            setError("Error fetching songs. Please try again later.");
+          console.error("Error fetching songs:", error);
+          setError("Error fetching songs. Please try again later.");
         });
     };
 
     fetchSongs();
-}, []);
+  }, []);
 
   // Handle like button click
-  const handleLike = async (songId) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("You must be logged in to like songs.");
-        return;
-      }
+  const handleLike = (songId) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("You must be logged in to like songs.");
+      return;
+    }
 
-      await axios.post(`${API_URL}/songs/${songId}/like`, null, {
+    axios
+      .post(`${API_URL}/songs/${songId}/like`, null, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+      })
+      .then(() => {
+        setSongs((prevSongs) =>
+          prevSongs.map((song) =>
+            song._id === songId ? { ...song, likes: (song.likes || 0) + 1 } : song
+          )
+        );
+      })
+      .catch((error) => {
+        console.error("Error liking song:", error);
       });
-
-      setSongs((prevSongs) =>
-        prevSongs.map((song) =>
-          song._id === songId ? { ...song, likes: (song.likes || 0) + 1 } : song
-        )
-      );
-    } catch (error) {
-      console.error("Error liking song:", error);
-    }
   };
 
   // Handle comment input change
@@ -72,48 +74,49 @@ function SongList() {
   };
 
   // Handle adding a comment
-  const handleAddComment = async (songId, user, comment) => {
-    try {
-        const response = await axios.post(
-            `https://gsharp.onrender.com/api/songs/${songId}/comments`,
-            { user, comment },  // Ensure this shape matches CommentRequest model
-            { headers: { 'Content-Type': 'application/json' } }
-        );
-        console.log("Comment added:", response.data);
-    } catch (error) {
-        console.error("Error adding comment:", error);
+  const handleAddComment = (songId) => {
+    const token = localStorage.getItem("token");
+    const comment = commentInputs[songId];
+    if (!token) {
+      setError("You must be logged in to comment.");
+      return;
     }
-};
-        // 🔄 Updated to match the expected API schema
-        await axios.post(
-            `${API_URL}/songs/${songId}/comments`,
-            { comment: comment },  // 👈 Change `content` to `comment` to match the backend schema
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            }
-        );
+    if (!comment) {
+      console.warn("Comment is empty!");
+      return;
+    }
 
-        // 🔄 Update the local state to reflect the new comment
+    axios
+      .post(
+        `${API_URL}/songs/${songId}/comments`,
+        { comment: comment },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+      .then((response) => {
+        console.log("Comment added:", response.data);
         setSongs((prevSongs) =>
-            prevSongs.map((song) =>
-                song._id === songId
-                    ? {
-                          ...song,
-                          comments: [
-                              ...(song.comments || []),
-                              { username: "Guest", comment: comment },  // 🔄 Change `content` to `comment` here too
-                          ],
-                      }
-                    : song
-            )
+          prevSongs.map((song) =>
+            song._id === songId
+              ? {
+                  ...song,
+                  comments: [
+                    ...(song.comments || []),
+                    { username: "Guest", comment: comment }, // Updated to use `.comment`
+                  ],
+                }
+              : song
+          )
         );
         setCommentInputs({ ...commentInputs, [songId]: "" });
-    } catch (error) {
+      })
+      .catch((error) => {
         console.error("Error adding comment:", error);
-    }
-};
+      });
+  };
 
   if (error) {
     return <div>{error}</div>;
@@ -133,7 +136,10 @@ function SongList() {
                 {song.title} by {song.artist} ({song.genre})
               </p>
               <audio controls className="w-full mb-2">
-              <source src={`${API_URL}/songs/file/${song.filename}`} type="audio/mpeg" />
+                <source
+                  src={`${API_URL}/songs/file/${song.filename}`}
+                  type="audio/mpeg"
+                />
                 Your browser does not support the audio element.
               </audio>
 
@@ -154,7 +160,7 @@ function SongList() {
                   <div className="space-y-1 mb-2">
                     {song.comments.map((c, index) => (
                       <p key={index} className="text-sm">
-                        <strong>{c.username}:</strong> {c.content}
+                        <strong>{c.username}:</strong> {c.comment}
                       </p>
                     ))}
                   </div>
