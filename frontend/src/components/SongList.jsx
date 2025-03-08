@@ -9,29 +9,32 @@ function SongList() {
   const [commentInputs, setCommentInputs] = useState({}); 
 
   useEffect(() => {
-    const fetchSongs = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setError("You must be logged in to view songs.");
-          return;
+    (async () => {
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                setError("You must be logged in to view songs.");
+                return;
+            }
+
+            const response = await axios.get(`${API_URL}/songs`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (response.data?.songs?.length) {
+                setSongs(response.data.songs);
+            } else {
+                console.warn("No songs returned from API.");
+                setSongs([]);
+            }
+        } catch (error) {
+            console.error("Error fetching songs:", error);
+            setError("Error fetching songs. Please try again later.");
         }
-
-        const response = await axios.get(`${API_URL}/songs`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        setSongs(Array.isArray(response.data.songs) ? response.data.songs : []);
-      } catch (error) {
-        console.error("Error fetching songs:", error);
-        setError("Error fetching songs. Please try again later.");
-      }
-    };
-
-    fetchSongs();
-  }, []);
+    })();
+}, []);
 
   // Handle like button click
   const handleLike = async (songId) => {
