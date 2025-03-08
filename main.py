@@ -194,7 +194,8 @@ async def get_song_file(file_id: str):
             file_doc = await music_collection.find_one({"filename": file_id})
             if not file_doc:
                 raise HTTPException(status_code=404, detail="File not found")
-            object_id = file_doc["file_id"]
+            # Use the correct field name for the GridFS ID
+            object_id = file_doc.get("_id")  # Change 'file_id' to '_id'
 
         # Fetch and stream the file from GridFS
         grid_out = await fs.open_download_stream(object_id)
