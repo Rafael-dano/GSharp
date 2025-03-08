@@ -186,29 +186,15 @@ async def upload_music(
 @app.get("/api/songs/file/{file_id}")
 async def get_song_file(file_id: str):
     try:
-        # Check if the file_id is a valid ObjectId
-        try:
-            object_id = ObjectId(file_id)
-        except errors.InvalidId:
-            # If not a valid ObjectId, search by filename instead
-            file_doc = await music_collection.find_one({"filename": file_id})
-            if not file_doc:
-                raise HTTPException(status_code=404, detail="File not found")
-            object_id = file_doc.get("_id")  # Use '_id' from the document
-
-        # Fetch and stream the file from GridFS
+        object_id = ObjectId(file_id)
         grid_out = await fs.open_download_stream(object_id)
         file_data = await grid_out.read()
-        await grid_out.close()  # Close the stream explicitly
-
-        # Return the file as a response
+        await grid_out.close()
         return Response(content=file_data, media_type="audio/mpeg")
-
-    except HTTPException as e:
-        print(f"Error serving file: {str(e.detail)}")
-        raise e
+    except (InvalidId, errors.InvalidId):
+        raise HTTPException(status_code=404, detail="Invalid file ID")
     except Exception as e:
-        print(f"Unexpected error serving file: {str(e)}")
+        print(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
     
 # Get all songs
