@@ -89,7 +89,7 @@ class SongMetadata(BaseModel):
 
 # Comment model
 class CommentRequest(BaseModel):
-    user: str
+    user: str = "Anonymous"
     comment: str
 
 # JWT Token Creation
@@ -155,48 +155,38 @@ async def get_protected_data():
 # Upload song with metadata
 @app.post("/api/upload")
 async def upload_music(
-    file: UploadFile = File(...), 
-    title: str = "", 
-    artist: str = "", 
-    genre: str = "", 
+    file: UploadFile = File(...),
+    title: str = "",
+    artist: str = "",
+    genre: str = "",
     token: str = Depends(oauth2_scheme)
 ):
     verify_token(token)
-    
+
     file_ext = file.filename.split(".")[-1]
     if file_ext not in ["mp3", "wav"]:
         raise HTTPException(status_code=400, detail="Invalid file type")
 
-    file_id = str(uuid.uuid4())
-    new_filename = f"{file_id}.{file_ext}"
-    file_path = os.path.join(UPLOAD_DIR, new_filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    file_id = fs.put(file.file, filename=file.filename)
+    # Save to GridFS directly without saving locally
+    gridfs_file_id = await fs.upload_from_stream(file.filename, file.file)
 
     music_doc = {
-        "id": file_id,
-        "filename": new_filename,
-        "original_filename": file.filename,
-        "path": file_path,
+        "file_id": gridfs_file_id,
+        "filename": file.filename,
         "title": title or "Untitled",
         "artist": artist or "Unknown Artist",
         "genre": genre or "Unknown Genre"
     }
     await music_collection.insert_one(music_doc)
 
-    return {"message": "File uploaded successfully", "file_id": file_id, "filename": new_filename}
+    return {"message": "File uploaded successfully", "file_id": str(gridfs_file_id)}
 
 # Serve audio files
 @app.get("/api/songs/file/{file_id}")
 async def get_song_file(file_id: str):
-    file_path = f"uploads/{file_id}.mp3"  # Ensure this path matches your saved file location
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="audio/mpeg")
-    raise HTTPException(status_code=404, detail="File not found")
-
+    grid_out = await fs.open_download_stream(ObjectId(file_id))
+    return Response(content=await grid_out.read(), media_type="audio/mpeg")
+    
 # Get all songs
 @app.get("/api/songs")
 async def get_songs():
@@ -227,8 +217,12 @@ async def like_song(song_id: str, token: str = Depends(oauth2_scheme)):
 # Add a comment
 @app.post("/api/songs/{song_id}/comments")
 async def add_comment(song_id: str, comment: CommentRequest):
-    comment_data = {"comment": comment.comment, "timestamp": datetime.utcnow()}
-    result = await db["songs"].update_one(
+    comment_data = {
+        "user": comment.user,
+        "comment": comment.comment,
+        "timestamp": datetime.utcnow()
+    }
+    result = await db["music"].update_one(
         {"_id": ObjectId(song_id)},
         {"$push": {"comments": comment_data}}
     )

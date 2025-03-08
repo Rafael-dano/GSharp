@@ -67,17 +67,18 @@ function SongList() {
   };
 
   // Handle adding a comment
-  const handleAddComment = async (songId) => {
-    const comment = commentInputs[songId];
-    if (!comment) return;
-
+  const handleAddComment = async (songId, user, comment) => {
     try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-            setError("You must be logged in to comment.");
-            return;
-        }
-
+        const response = await axios.post(
+            `https://gsharp.onrender.com/api/songs/${songId}/comments`,
+            { user, comment },  // Ensure this shape matches CommentRequest model
+            { headers: { 'Content-Type': 'application/json' } }
+        );
+        console.log("Comment added:", response.data);
+    } catch (error) {
+        console.error("Error adding comment:", error);
+    }
+};
         // 🔄 Updated to match the expected API schema
         await axios.post(
             `${API_URL}/songs/${songId}/comments`,
