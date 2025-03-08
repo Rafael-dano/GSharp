@@ -88,7 +88,8 @@ class SongMetadata(BaseModel):
     genre: str
 
 # Comment model
-class Comment(BaseModel):
+class CommentRequest(BaseModel):
+    user: str
     comment: str
 
 # JWT Token Creation
