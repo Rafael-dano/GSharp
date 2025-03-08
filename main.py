@@ -7,6 +7,7 @@ import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
+from gridfs import GridFS
 from dotenv import load_dotenv
 import certifi 
 from pydantic import BaseModel
@@ -64,6 +65,7 @@ client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client.music_hub
 users_collection = db.users
 music_collection = db.music
+fs = GridFS(db)
 
 # Authentication settings
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
