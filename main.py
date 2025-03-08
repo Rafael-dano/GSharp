@@ -198,7 +198,11 @@ async def get_song_file(file_id: str):
 
         # Fetch and stream the file from GridFS
         grid_out = await fs.open_download_stream(object_id)
-        return Response(content=await grid_out.read(), media_type="audio/mpeg")
+        file_data = await grid_out.read()
+        await grid_out.close()  # Close the stream explicitly
+
+        # Return the file as a response
+        return Response(content=file_data, media_type="audio/mpeg")
 
     except HTTPException as e:
         print(f"Error serving file: {str(e.detail)}")
