@@ -173,6 +173,8 @@ async def upload_music(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    file_id = fs.put(file.file, filename=file.filename)
+
     music_doc = {
         "id": file_id,
         "filename": new_filename,
