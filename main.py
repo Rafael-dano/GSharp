@@ -184,8 +184,12 @@ async def upload_music(
 # Serve audio files
 @app.get("/api/songs/file/{file_id}")
 async def get_song_file(file_id: str):
-    grid_out = await fs.open_download_stream(ObjectId(file_id))
-    return Response(content=await grid_out.read(), media_type="audio/mpeg")
+    try:
+        grid_out = await fs.open_download_stream(ObjectId(file_id))
+        return Response(content=await grid_out.read(), media_type="audio/mpeg")
+    except Exception as e:
+        print("Error serving file:", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch the file.")
     
 # Get all songs
 @app.get("/api/songs")
