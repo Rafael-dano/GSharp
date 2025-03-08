@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
-from bson import ObjectId
+from bson import ObjectId, errors
 from bson.errors import InvalidId
 from dotenv import load_dotenv
 import certifi 
@@ -189,13 +189,12 @@ async def get_song_file(file_id: str):
         # Check if the file_id is a valid ObjectId
         try:
             object_id = ObjectId(file_id)
-        except InvalidId:
+        except errors.InvalidId:
             # If not a valid ObjectId, search by filename instead
             file_doc = await music_collection.find_one({"filename": file_id})
             if not file_doc:
                 raise HTTPException(status_code=404, detail="File not found")
-            # Use the correct field name for the GridFS ID
-            object_id = file_doc.get("_id")  # Change 'file_id' to '_id'
+            object_id = file_doc.get("_id")  # Use '_id' from the document
 
         # Fetch and stream the file from GridFS
         grid_out = await fs.open_download_stream(object_id)
