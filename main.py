@@ -5,9 +5,8 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from passlib.context import CryptContext
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from bson import ObjectId
-from gridfs import GridFS
 from dotenv import load_dotenv
 import certifi 
 from pydantic import BaseModel
@@ -65,7 +64,8 @@ client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client.music_hub
 users_collection = db.users
 music_collection = db.music
-fs = GridFS(db)
+fs = AsyncIOMotorGridFSBucket(db)  # ✅ Use Motor's async GridFSBucket
+
 
 # Authentication settings
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
