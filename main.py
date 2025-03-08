@@ -7,6 +7,7 @@ import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from bson import ObjectId
+from bson.errors import InvalidId
 from dotenv import load_dotenv
 import certifi 
 from pydantic import BaseModel
@@ -185,11 +186,26 @@ async def upload_music(
 @app.get("/api/songs/file/{file_id}")
 async def get_song_file(file_id: str):
     try:
-        grid_out = await fs.open_download_stream(ObjectId(file_id))
+        # Check if the file_id is a valid ObjectId
+        try:
+            object_id = ObjectId(file_id)
+        except InvalidId:
+            # If not a valid ObjectId, search by filename instead
+            file_doc = await music_collection.find_one({"filename": file_id})
+            if not file_doc:
+                raise HTTPException(status_code=404, detail="File not found")
+            object_id = file_doc["file_id"]
+
+        # Fetch and stream the file from GridFS
+        grid_out = await fs.open_download_stream(object_id)
         return Response(content=await grid_out.read(), media_type="audio/mpeg")
+
+    except HTTPException as e:
+        print(f"Error serving file: {str(e.detail)}")
+        raise e
     except Exception as e:
-        print("Error serving file:", e)
-        raise HTTPException(status_code=500, detail="Failed to fetch the file.")
+        print(f"Unexpected error serving file: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
     
 # Get all songs
 @app.get("/api/songs")
