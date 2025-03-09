@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from passlib.context import CryptContext
 import jwt
@@ -8,11 +8,13 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from bson import ObjectId, errors
 from bson.errors import InvalidId
+from urllib.parse import unquote
 from dotenv import load_dotenv
 import certifi 
 from pydantic import BaseModel
 import os
 import shutil
+import gridfs
 import uuid
 import bcrypt
 import traceback
@@ -44,7 +46,7 @@ async def log_requests(request, call_next):
     return response
 
 print("CORS Config:", {
-    "allow_origins": ["http://localhost:3000"],
+    "allow_origins": ["http://localhost:3000", "https://gsharp.onrender.com", "https://gsharp1.onrender.com"],
     "allow_credentials": True,
     "allow_methods": ["*"],
     "allow_headers": ["*"]
@@ -63,6 +65,7 @@ if not MONGO_URI:
 
 client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client.music_hub
+fs = gridfs.GridFS(db)
 users_collection = db.users
 music_collection = db.music
 fs = AsyncIOMotorGridFSBucket(db)  # ✅ Use Motor's async GridFSBucket
@@ -182,19 +185,28 @@ async def upload_music(
 
     return {"message": "File uploaded successfully", "file_id": str(gridfs_file_id)}
 
-# Serve audio files
-@app.get("/api/songs/file/{file_id}")
-async def get_song_file(file_id: str):
+# Route to fetch songs by filename or ID
+@app.get("/api/songs/file/{filename}")
+async def get_song_file(filename: str):
+    # Decode URL encoding
+    decoded_filename = unquote(filename)
+    
     try:
-        object_id = ObjectId(file_id)
-        grid_out = await fs.open_download_stream(object_id)
-        file_data = await grid_out.read()
-        await grid_out.close()
-        return Response(content=file_data, media_type="audio/mpeg")
-    except (InvalidId, errors.InvalidId):
-        raise HTTPException(status_code=404, detail="Invalid file ID")
+        # Check if filename is a valid ObjectId
+        if ObjectId.is_valid(decoded_filename.split(".")[0]):
+            # Fetch by ObjectId
+            file = await fs.find_one({"_id": ObjectId(decoded_filename.split(".")[0])})
+        else:
+            # Fetch by filename
+            file = fs.find_one({"filename": decoded_filename})
+        
+        if file is None:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Return file as a stream
+        return StreamingResponse(file, media_type="audio/mpeg")
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
+        print(f"Error fetching file: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
     
 # Get all songs
@@ -217,7 +229,7 @@ async def get_songs():
 # Like a song
 @app.post("/api/songs/{song_id}/like")
 async def like_song(song_id: str, token: str = Depends(oauth2_scheme)):
-    song = db.songs.find_one({"_id": ObjectId(song_id)})
+    song = await db.songs.find_one({"_id": ObjectId(song_id)})
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
 
