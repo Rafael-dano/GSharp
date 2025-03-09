@@ -12,6 +12,7 @@ from urllib.parse import unquote
 from dotenv import load_dotenv
 import certifi 
 from pydantic import BaseModel
+from pymongo import MongoClient
 import os
 import shutil
 import gridfs
@@ -68,8 +69,6 @@ db = client.music_hub
 fs = gridfs.GridFS(db)
 users_collection = db.users
 music_collection = db.music
-fs = AsyncIOMotorGridFSBucket(db)  # ✅ Use Motor's async GridFSBucket
-
 
 # Authentication settings
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
