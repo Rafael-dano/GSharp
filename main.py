@@ -187,21 +187,16 @@ async def upload_music(
 # Route to fetch songs by filename or ID
 @app.get("/api/songs/file/{filename}")
 async def get_song_file(filename: str):
-    # Decode URL encoding
     decoded_filename = unquote(filename)
-    
+
     try:
-        # Check if filename is a valid ObjectId
         if ObjectId.is_valid(decoded_filename.split(".")[0]):
             # Fetch by ObjectId
-            file = await fs.find_one({"_id": ObjectId(decoded_filename.split(".")[0])})
+            file = await fs.open_download_stream(ObjectId(decoded_filename.split(".")[0]))
         else:
             # Fetch by filename
-            file = fs.find_one({"filename": decoded_filename})
-        
-        if file is None:
-            raise HTTPException(status_code=404, detail="File not found")
-        
+            file = await fs.open_download_stream_by_name(decoded_filename)
+
         # Return file as a stream
         return StreamingResponse(file, media_type="audio/mpeg")
     except Exception as e:
@@ -227,13 +222,19 @@ async def get_songs():
 
 # Like a song
 @app.post("/api/songs/{song_id}/like")
-async def like_song(song_id: str, token: str = Depends(oauth2_scheme)):
-    song = await db.songs.find_one({"_id": ObjectId(song_id)})
-    if not song:
-        raise HTTPException(status_code=404, detail="Song not found")
+async def like_song(song_id: str):
+    try:
+        result = await db.songs.update_one(
+            {"_id": ObjectId(song_id)},
+            {"$inc": {"likes": 1}}
+        )
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Song not found")
 
-    db.songs.update_one({"_id": ObjectId(song_id)}, {"$inc": {"likes": 1}})
-    return {"message": "Song liked successfully"}
+        return {"message": "Song liked successfully!"}
+    except Exception as e:
+        print(f"Error liking song: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # Add a comment
 @app.post("/api/songs/{song_id}/comments")
