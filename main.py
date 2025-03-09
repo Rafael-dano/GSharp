@@ -66,7 +66,7 @@ if not MONGO_URI:
 
 client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client.music_hub
-fs = gridfs.GridFS(db)
+fs = AsyncIOMotorGridFSBucket(db)
 users_collection = db.users
 music_collection = db.music
 
